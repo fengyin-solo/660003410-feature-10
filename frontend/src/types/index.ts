@@ -7,10 +7,16 @@ export interface WordLink {
   type: 'cognate' | 'derived' | 'borrowed' | 'reconstructed'
   description?: string
 }
+export interface RootExample {
+  word: string; language: string
+  sentence: string; translation: string
+}
 export interface CognateSet {
   root: string; meaning: string
   languages: Record<string, string>
   period: string; family: string
+  examples: RootExample[]
+  misconceptions: string[]
 }
 export interface LanguageFamily {
   id: string; name: string; color: string; languages: string[]; era: string

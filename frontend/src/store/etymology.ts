@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import type { CognateSet } from '../types'
 import { COGNATE_SETS, LANGUAGE_FAMILIES, buildGraph } from '../mock/data'
 export { LANGUAGE_FAMILIES, COGNATE_SETS }
 
 export const useEtymologyStore = defineStore('etymology', () => {
   const graph = ref(buildGraph())
   const selectedNode = ref<any>(null)
+  const selectedRoot = ref<CognateSet | null>(null)
   const searchQuery = ref('')
   const selectedFamily = ref('all')
 
@@ -18,5 +20,5 @@ export const useEtymologyStore = defineStore('etymology', () => {
     })
   )
 
-  return { graph, selectedNode, searchQuery, selectedFamily, filteredCognates }
+  return { graph, selectedNode, selectedRoot, searchQuery, selectedFamily, filteredCognates }
 })

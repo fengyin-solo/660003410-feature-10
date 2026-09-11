@@ -43,7 +43,7 @@
         </div>
       </div>
       <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
-        <h3 class="text-sm font-bold text-slate-400 mb-3">同源词对照表</h3>
+        <h3 class="text-sm font-bold text-slate-400 mb-3">同源词对照表 <span class="text-xs text-slate-500 font-normal">（点击行查看词根详情）</span></h3>
         <div class="flex gap-2 mb-3">
           <input v-model="store.searchQuery" placeholder="搜索词根/含义..." class="flex-1 bg-slate-900 border border-slate-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500" />
           <select v-model="store.selectedFamily" class="bg-slate-900 border border-slate-600 rounded px-2 text-sm text-slate-300">
@@ -66,7 +66,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="cs in store.filteredCognates" :key="cs.root" class="border-t border-slate-700 hover:bg-slate-700">
+              <tr v-for="cs in store.filteredCognates" :key="cs.root" class="border-t border-slate-700 hover:bg-slate-700 cursor-pointer"
+                :class="{ 'bg-slate-700': store.selectedRoot === cs }" @click="selectRoot(cs)">
                 <td class="px-2 py-1.5 font-mono text-slate-200 font-bold">{{ cs.root }}</td>
                 <td class="px-2 py-1.5 text-slate-400">{{ cs.meaning }}</td>
                 <td class="px-2 py-1.5 font-mono text-cyan-300">{{ cs.languages['英语'] || '—' }}</td>
@@ -80,18 +81,60 @@
           </table>
         </div>
       </div>
+      <div v-if="store.selectedRoot" ref="detailRef" class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-slate-400">词根详情</h3>
+          <button class="text-xs text-slate-500 hover:text-slate-300" @click="store.selectedRoot = null">关闭 ✕</button>
+        </div>
+        <div class="flex items-baseline gap-3 mb-4">
+          <span class="text-xl font-bold font-mono text-cyan-400">{{ store.selectedRoot.root }}</span>
+          <span class="text-sm text-slate-300">{{ store.selectedRoot.meaning }}</span>
+          <span class="text-xs text-slate-500">{{ store.selectedRoot.period }}</span>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <h4 class="text-xs font-bold text-cyan-400 mb-2">代表词例句</h4>
+            <div class="space-y-2">
+              <div v-for="ex in store.selectedRoot.examples" :key="ex.word" class="bg-slate-900 rounded p-2 text-xs">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-mono font-bold text-cyan-300">{{ ex.word }}</span>
+                  <span class="text-slate-500">{{ ex.language }}</span>
+                </div>
+                <div class="text-slate-300">{{ ex.sentence }}</div>
+                <div class="text-slate-500 mt-0.5">{{ ex.translation }}</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-amber-400 mb-2">常见误解</h4>
+            <div class="space-y-2">
+              <div v-for="(m, i) in store.selectedRoot.misconceptions" :key="i" class="bg-slate-900 rounded p-2 text-xs text-slate-300 flex gap-2">
+                <span class="text-amber-400 flex-shrink-0">⚠</span>
+                <span>{{ m }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import * as d3 from 'd3'
-import { useEtymologyStore, LANGUAGE_FAMILIES } from './store/etymology'
+import { useEtymologyStore, LANGUAGE_FAMILIES, COGNATE_SETS } from './store/etymology'
+import type { CognateSet } from './types'
 
 const store = useEtymologyStore()
 const svgRef = ref<SVGSVGElement | null>(null)
+const detailRef = ref<HTMLElement | null>(null)
 const COLORS: Record<string, string> = { ie: '#3b82f6', st: '#22c55e', aa: '#f59e0b', ural: '#8b5cf6' }
+
+function selectRoot(cs: CognateSet | null) {
+  store.selectedRoot = cs
+  if (cs) nextTick(() => detailRef.value?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+}
 
 function drawGraph() {
   if (!svgRef.value) return
@@ -114,7 +157,15 @@ function drawGraph() {
       .on('start', (e, d: any) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y })
       .on('drag', (e, d: any) => { d.fx = e.x; d.fy = e.y })
       .on('end', (e, d: any) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null }))
-    .on('click', (_: any, d: any) => { store.selectedNode = d })
+    .on('click', (_: any, d: any) => {
+      store.selectedNode = d
+      if (d.language === 'Proto-IE') {
+        selectRoot(COGNATE_SETS.find(cs => cs.root === d.word) || null)
+      } else {
+        const ci = parseInt(d.id)
+        selectRoot(isNaN(ci) ? null : COGNATE_SETS[ci] || null)
+      }
+    })
   node.append('circle')
     .attr('r', (d: any) => d.language === 'Proto-IE' ? 12 : 7)
     .attr('fill', (d: any) => COLORS[d.family] || '#64748b')
